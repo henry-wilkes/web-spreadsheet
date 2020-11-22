@@ -279,6 +279,8 @@ describe('cell ranges', () => {
 
 describe('parse Errors', () => {
   test.each([
+    /* empty formula */
+    ['', '', [/empty formula/i]],
     /* unknown function */
     ['3 + MyFunc (a3:a6) * 7', 'MyFunc', [/unknown/i, /function/i]],
     /* incorrect ranges */

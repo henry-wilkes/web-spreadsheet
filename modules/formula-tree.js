@@ -131,7 +131,7 @@ class Formula {
 
   static numOrNew (func, args, index, length) {
     if (args.every(arg => (arg instanceof RawNumber))) {
-      const val = func.apply(null, args.map(arg => arg.number));
+      const val = func(...args.map(arg => arg.number));
       /* val may be undefined, e.g. avg(), in which case we want to preserve
        * the function that created it */
       if (typeof val === 'number') {
@@ -584,7 +584,7 @@ function parseFormula (text) {
   const length = text.length;
   const elements = parseContent(text, 0, false, false);
   if (elements.length === 0) {
-    return null;
+    throw new ParseError(0, length, 'Empty Formula');
   }
   const element = replaceOperatorRawSymbols(elements, 0, length);
   return replaceRawNumbers(element);

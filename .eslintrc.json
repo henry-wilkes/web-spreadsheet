@@ -12,6 +12,7 @@
     },
     "rules": {
         "semi": [ "error", "always" ],
-        "quote-props": [ "off" ]
+        "quote-props": [ "off" ],
+        "no-undef-init": [ "off" ]
     }
 }
