@@ -1,4 +1,5 @@
 import * as Tree from './formula-tree.js';
+import { TextRegion, mergeRegions } from './text-regions.js';
 
 function setMinus (setA, setB) {
   const diff = new Set();
@@ -33,12 +34,13 @@ function deriveDependOn (formulaNode, dependSet) {
     for (const node of formulaNode.args) {
       deriveDependOn(node, dependSet);
     }
-  } else if (formulaNode instanceof CellNodeRef) {
+  } else if (formulaNode instanceof CellNodeRef &&
+      formulaNode.cellNode instanceof CellNode) {
     dependSet.add(formulaNode.cellNode);
   }
 }
 
-function evaluateFormula (formulaNode) {
+function evaluateFormula (formulaNode, allowNull) {
   if (formulaNode instanceof Tree.Formula) {
     /* NOTE: the cache for the arguments might be outdated, e.g.
      *
@@ -67,7 +69,7 @@ function evaluateFormula (formulaNode) {
     const length = args.length;
     const argVals = new Array(length);
     for (let i = 0; i < length; i++) {
-      const val = evaluateFormula(args[i]);
+      const val = evaluateFormula(args[i], formulaNode.allowNull);
       if (val === undefined) {
         /* NOTE: this prevents us visiting the sibling nodes */
         return undefined;
@@ -81,7 +83,8 @@ function evaluateFormula (formulaNode) {
   }
   if (formulaNode instanceof CellNodeRef) {
     const cellNode = formulaNode.cellNode;
-    if (cellNode === null) {
+    if (!(cellNode instanceof CellNode) ||
+        (allowNull === false && cellNode.cache === null)) {
       return undefined;
     }
     return cellNode.cache;
@@ -91,11 +94,168 @@ function evaluateFormula (formulaNode) {
   return undefined;
 }
 
+class NodeDepErrors {
+  constructor () {
+    /* map from cell name to Set of cell ranges it is part of */
+    this.cellNames = new Map();
+    this.errorRegions = [];
+  }
+
+  addDepError (ref) {
+    const node = ref.cellNode;
+    const cellName = (node instanceof CellNode) ? node.name : node;
+    let ranges = this.cellNames.get(cellName);
+    if (ranges === undefined) {
+      ranges = new Set();
+      this.cellNames.set(cellName, ranges);
+    }
+    /* cellRange may be null, indicating it is not part of a range */
+    ranges.add(ref.cellRange);
+    this.errorRegions.push(new TextRegion(ref.index, ref.length));
+  }
+
+  getDepNames () {
+    if (this.cellNames.size === 0) {
+      return null;
+    }
+    const names = [];
+    this.cellNames.forEach((ranges, name) => {
+      let haveNull = false;
+      const nonNull = [];
+      for (const range of ranges) {
+        if (range === null) {
+          haveNull = true;
+        } else {
+          nonNull.push(range);
+        }
+      }
+      if (nonNull.length === 0) {
+        names.push(name);
+      } else {
+        if (haveNull === true) {
+          /* also include name of self in the brackets since this
+           * means that the node appears in both a range and
+           * individually */
+          nonNull.unshift(name);
+        }
+        names.push(name + ' (' + nonNull.join(', ') + ')');
+      }
+    });
+    return names.join(', ');
+  }
+}
+
+class FuncErrors {
+  constructor () {
+    /* map from cell name to Set of cell ranges it is part of */
+    this.funcNames = new Set();
+    this.errorRegions = [];
+  }
+
+  addFuncError (formula) {
+    /* NOTE: we are relying on the fact that the internal name is descriptive */
+    this.funcNames.add(formula.func.name);
+    this.errorRegions.push(new TextRegion(formula.index, formula.length));
+  }
+
+  getFuncNames () {
+    if (this.funcNames.size === 0) {
+      return null;
+    }
+    const names = [];
+    for (const name of this.funcNames) {
+      names.push(name);
+    }
+    return names.join(', ');
+  }
+}
+
+function evaluateFormulaErrors (formulaNode, allowNull, testingNode, errors) {
+  if (formulaNode instanceof Tree.Formula) {
+    const args = formulaNode.args;
+    const length = args.length;
+    const argVals = new Array(length);
+    let haveUndefinedVal = false;
+    for (let i = 0; i < length; i++) {
+      const val = evaluateFormulaErrors(
+        args[i], formulaNode.allowNull, testingNode, errors);
+      if (val === undefined) {
+        /* keep visiting sibling nodes and their children */
+        haveUndefinedVal = true;
+      } else {
+        argVals[i] = val;
+      }
+    }
+    if (haveUndefinedVal) {
+      /* this error should already be handled lower down */
+      return undefined;
+    }
+    const funcVal = formulaNode.func(...argVals);
+    if (funcVal === undefined) {
+      /* undefined despite no other errors, e.g. avg() */
+      errors.undefinedFuncs.addFuncError(formulaNode);
+    }
+    return funcVal;
+  }
+  if (typeof formulaNode === 'number') {
+    return formulaNode;
+  }
+  if (formulaNode instanceof CellNodeRef) {
+    const cellNode = formulaNode.cellNode;
+    if (!(cellNode instanceof CellNode)) {
+      /* out of bounds
+       * cellNode should be the name of the cellNode instead */
+      errors.outOfScopeDeps.addDepError(formulaNode);
+      return undefined;
+    }
+    if (allowNull === false && cellNode.cache === null) {
+      /* empty */
+      errors.emptyDeps.addDepError(formulaNode);
+      return undefined;
+    }
+    /* check if in cycles of the testing node */
+    let inCycle = false;
+    for (const nextNode of testingNode.cycles.values()) {
+      if (nextNode === cellNode) {
+        inCycle = true;
+        break;
+      }
+    }
+    if (inCycle) {
+      errors.cycleDeps.addDepError(formulaNode);
+      return undefined;
+    }
+    if (cellNode.cache === undefined) {
+      errors.undefinedDeps.addDepError(formulaNode);
+      return undefined;
+    }
+
+    return cellNode.cache;
+  }
+  console.error('Unexpected ' + formulaNode.constructor.name + ' type ' +
+    'formulaNode');
+  return undefined;
+}
+
+function extractFormulaNodeErrors (cellNode) {
+  const errors = {
+    outOfScopeDeps: new NodeDepErrors(),
+    emptyDeps: new NodeDepErrors(),
+    cycleDeps: new NodeDepErrors(),
+    undefinedDeps: new NodeDepErrors(),
+    undefinedFuncs: new FuncErrors()
+  };
+  /* don't care about return, which would be undefined anyway */
+  evaluateFormulaErrors(cellNode.value, false, cellNode, errors);
+  return errors;
+}
+
 class CellNodeRef {
-  constructor (cellNode, index, length) {
+  constructor (cellNode, index, length, cellRange) {
     this.cellNode = cellNode;
     this.index = index;
     this.length = length;
+    this.cellRange = cellRange;
   }
 }
 
@@ -187,7 +347,11 @@ class CellNode {
         /* self reference */
         this.cache = undefined;
       } else {
-        this.cache = evaluateFormula(this.value);
+        /* don't allow null value at the top of the formula tree. I.e., if
+         * we only have a single empty CellNodeRef, we want an undefined rather
+         * than empty cache. Basically, treat top as an identity method that
+         * returns undefined on null */
+        this.cache = evaluateFormula(this.value, false);
       }
     } else if (typeof value === 'number') {
       this.cache = value;
@@ -231,14 +395,10 @@ class CellNode {
     const lostDepsOn = setMinus(prevDependsOn, newDependsOn);
 
     for (const lost of lostDepsOn) {
-      if (lost !== null) {
-        lost.removeDependant(this);
-      }
+      lost.removeDependant(this);
     }
     for (const gained of gainedDepsOn) {
-      if (gained !== null) {
-        gained.addDependant(this);
-      }
+      gained.addDependant(this);
     }
 
     /* all cycles that travelled from *this* node to a lost node have now been
@@ -259,9 +419,6 @@ class CellNode {
 
     /* check for created cycles */
     for (const gained of gainedDepsOn) {
-      if (gained === null) {
-        continue;
-      }
       const foundCycles = [];
       findCyclesFrom(gained, [this], foundCycles);
       /* these are new cycles */
@@ -359,17 +516,28 @@ class CellGraph {
       }
       /* fallthrough to return self */
     } else if (formulaNode instanceof Tree.Reference) {
-      const cell = this.getActiveCell(formulaNode.refCol, formulaNode.refRow);
-      return new CellNodeRef(cell, formulaNode.index, formulaNode.length);
+      let cell = this.getActiveCell(formulaNode.refCol, formulaNode.refRow);
+      if (cell === null) {
+        /* just make the ref point to a string */
+        cell = formulaNode.refCol + formulaNode.refRow;
+      }
+      return new CellNodeRef(cell, formulaNode.index, formulaNode.length, null);
     } else if (formulaNode instanceof Tree.ReferenceRange) {
-      const rowStart = Number(formulaNode.rowStart);
-      const rowEnd = Number(formulaNode.rowEnd);
+      const rowStart = formulaNode.rowStart;
+      const rowEnd = formulaNode.rowEnd;
       const col = formulaNode.refCol;
+      const cellRange = col + rowStart + ':' + col + rowEnd;
       const expanded = [];
-      for (let row = rowStart; row <= rowEnd; row++) {
-        const cell = this.getActiveCell(col, String(row));
-        expanded.push(
-          new CellNodeRef(cell, formulaNode.index, formulaNode.length));
+      const start = Number(rowStart);
+      const end = Number(rowEnd);
+      for (let row = start; row <= end; row++) {
+        let cell = this.getActiveCell(col, String(row));
+        if (cell === null) {
+          /* just make the ref point to a string */
+          cell = col + String(row);
+        }
+        expanded.push(new CellNodeRef(cell, formulaNode.index,
+          formulaNode.length, cellRange));
       }
       return expanded;
     }
@@ -480,6 +648,92 @@ class CellGraph {
        * twice */
       this.cellDisplayUpdateCallback(cellName, display);
     }
+  }
+
+  getCellEntry (cellName) {
+    const entry = this.cellEntries.get(cellName);
+
+    if (entry === undefined) {
+      return null;
+    }
+
+    const ret = {};
+
+    if (isFormula(entry)) {
+      ret.text = '=' + entry.text;
+      if (entry instanceof DynamicFormula) {
+        const cellNode = this.activeCells.get(cellName);
+        if (cellNode === undefined) {
+          console.error('Missing an active cell entry for the formula cell ' +
+            cellName);
+        } else {
+          /* show which nodes this one depends on */
+          ret.dependsOn = [];
+          for (const node of cellNode.dependsOn) {
+            ret.dependsOn.push(node.name);
+          }
+          if (cellNode.cache === undefined) {
+            const {
+              outOfScopeDeps,
+              emptyDeps,
+              cycleDeps,
+              undefinedDeps,
+              undefinedFuncs
+            } = extractFormulaNodeErrors(cellNode);
+            /* combine all error regions */
+            const regions = undefinedFuncs.errorRegions.concat(
+              outOfScopeDeps.errorRegions,
+              emptyDeps.errorRegions,
+              cycleDeps.errorRegions,
+              undefinedDeps.errorRegions);
+            mergeRegions(regions);
+            /* increase each regions starting index to accommodate the '=' */
+            for (const region of regions) {
+              region.index++;
+            }
+
+            const errorMessages = [];
+            let names = undefinedFuncs.getFuncNames();
+            if (names !== null) {
+              errorMessages.push('Function evaluation is not defined: ' +
+                names);
+            }
+            names = outOfScopeDeps.getDepNames();
+            if (names !== null) {
+              errorMessages.push('Cell is out of scope: ' + names);
+            }
+            names = emptyDeps.getDepNames();
+            if (names !== null) {
+              errorMessages.push('Cell is empty: ' + names);
+            }
+            names = cycleDeps.getDepNames();
+            if (names !== null) {
+              errorMessages.push('Cell creates a self-dependency: ' + names);
+            }
+            names = undefinedDeps.getDepNames();
+            if (names !== null) {
+              errorMessages.push('Cell is undetermined: ' + names);
+            }
+
+            ret.errorRegions = regions;
+            ret.errorMessages = errorMessages;
+          }
+        }
+      } else if (entry instanceof InvalidFormula) {
+        /* get parse error */
+        if (entry.text === '') {
+          /* in this case just highlight the equal sign */
+          ret.errorRegions = [new TextRegion(0, 1)];
+        } else {
+          /* increase index to accommodate the '=' */
+          ret.errorRegions = [new TextRegion(entry.index + 1, entry.length)];
+        }
+        ret.errorMessages = [entry.message];
+      }
+    } else {
+      ret.text = String(entry);
+    }
+    return ret;
   }
 }
 

@@ -153,7 +153,7 @@ describe('named functions', () => {
   test('empty avg', () => {
     /* would be undefined so we have kept the function */
     expect(Tree.parseFormula(' avg  () ')).toStrictEqual(
-      new Tree.Formula(avg, [], 1, 7));
+      new Tree.Formula(avg, [], 1, 7, true));
   });
 
   test.each([
@@ -176,11 +176,11 @@ describe('cell references', () => {
     return new Tree.Reference('a', '46', index, width);
   }
   test.each([
-    ['-a46', new Tree.Formula(negate, [a46RefAtIndex(1)], 0, 4)],
-    ['7 + a46', new Tree.Formula(add, [7, a46RefAtIndex(4)], 0, 7)],
-    ['7 - a46', new Tree.Formula(minus, [7, a46RefAtIndex(4)], 0, 7)],
-    ['7 * a46', new Tree.Formula(multiply, [7, a46RefAtIndex(4)], 0, 7)],
-    ['7 / a46', new Tree.Formula(divide, [7, a46RefAtIndex(4)], 0, 7)]
+    ['-a46', new Tree.Formula(negate, [a46RefAtIndex(1)], 0, 4, false)],
+    ['7 + a46', new Tree.Formula(add, [7, a46RefAtIndex(4)], 0, 7, false)],
+    ['7 - a46', new Tree.Formula(minus, [7, a46RefAtIndex(4)], 0, 7, false)],
+    ['7 * a46', new Tree.Formula(multiply, [7, a46RefAtIndex(4)], 0, 7, false)],
+    ['7 / a46', new Tree.Formula(divide, [7, a46RefAtIndex(4)], 0, 7, false)]
   ])('with operator: %s', (input, res) => {
     expect(Tree.parseFormula(input)).toStrictEqual(res);
   });
@@ -190,22 +190,22 @@ describe('cell references', () => {
   }
   test.each([
     ['c9 + a46', new Tree.Formula(add,
-      [c9RefAtIndex(0), a46RefAtIndex(5)], 0, 8)],
+      [c9RefAtIndex(0), a46RefAtIndex(5)], 0, 8, false)],
     ['c9 - a46', new Tree.Formula(minus,
-      [c9RefAtIndex(0), a46RefAtIndex(5)], 0, 8)],
+      [c9RefAtIndex(0), a46RefAtIndex(5)], 0, 8, false)],
     ['c9 * a46', new Tree.Formula(multiply,
-      [c9RefAtIndex(0), a46RefAtIndex(5)], 0, 8)],
+      [c9RefAtIndex(0), a46RefAtIndex(5)], 0, 8, false)],
     ['c9 / a46', new Tree.Formula(divide,
-      [c9RefAtIndex(0), a46RefAtIndex(5)], 0, 8)]
+      [c9RefAtIndex(0), a46RefAtIndex(5)], 0, 8, false)]
   ])('with ref: %s', (input, res) => {
     expect(Tree.parseFormula(input)).toStrictEqual(res);
   });
 
   test.each([
     ['sum(c9, a46)', new Tree.Formula(sum,
-      [c9RefAtIndex(4), a46RefAtIndex(8)], 0, 12)],
+      [c9RefAtIndex(4), a46RefAtIndex(8)], 0, 12, true)],
     ['avg(c9, a46)', new Tree.Formula(avg,
-      [c9RefAtIndex(4), a46RefAtIndex(8)], 0, 12)]
+      [c9RefAtIndex(4), a46RefAtIndex(8)], 0, 12, true)]
   ])('with function: %s', (input, res) => {
     expect(Tree.parseFormula(input)).toStrictEqual(res);
   });
@@ -218,31 +218,31 @@ describe('cell references', () => {
           new Tree.Formula(sum,
             [
               c9RefAtIndex(9),
-              new Tree.Formula(avg, [a46RefAtIndex(17), 2, -15], 13, 19),
+              new Tree.Formula(avg, [a46RefAtIndex(17), 2, -15], 13, 19, true),
               new Tree.Formula(divide,
                 [
-                  new Tree.Formula(negate, [c9RefAtIndex(36)], 34, 4),
+                  new Tree.Formula(negate, [c9RefAtIndex(36)], 34, 4, false),
                   2
-                ], 34, 8)
-            ], 4, 39)
-        ], 0, 43)
+                ], 34, 8, false)
+            ], 4, 39, true)
+        ], 0, 43, false)
     ],
     [' 9 / c9 + c9 * (c9) / (-a46 +  2)  ',
       new Tree.Formula(add,
         [
-          new Tree.Formula(divide, [9, c9RefAtIndex(5)], 1, 6),
+          new Tree.Formula(divide, [9, c9RefAtIndex(5)], 1, 6, false),
           new Tree.Formula(divide,
             [
               new Tree.Formula(multiply,
                 /* brackets around the second c9 make it wider */
-                [c9RefAtIndex(10), c9RefAtIndex(15, 4)], 10, 9),
+                [c9RefAtIndex(10), c9RefAtIndex(15, 4)], 10, 9, false),
               new Tree.Formula(add,
                 [
-                  new Tree.Formula(negate, [a46RefAtIndex(24)], 23, 4),
+                  new Tree.Formula(negate, [a46RefAtIndex(24)], 23, 4, false),
                   2
-                ], 22, 11)
-            ], 10, 23)
-        ], 1, 32)
+                ], 22, 11, false)
+            ], 10, 23, false)
+        ], 1, 32, false)
     ]
   ])('complex: %s', (input, res) => {
     expect(Tree.parseFormula(input)).toStrictEqual(res);
@@ -253,14 +253,14 @@ describe('cell ranges', () => {
   /* these are only valid within function arguments */
   test.each([
     ['avg(a4:a50)', new Tree.Formula(avg,
-      [new Tree.ReferenceRange('a', '4', '50', 4, 6)], 0, 11)],
+      [new Tree.ReferenceRange('a', '4', '50', 4, 6)], 0, 11, true)],
     [' sum ( Ab17:aB119 ) ', new Tree.Formula(sum,
-      [new Tree.ReferenceRange('ab', '17', '119', 7, 10)], 1, 18)],
+      [new Tree.ReferenceRange('ab', '17', '119', 7, 10)], 1, 18, true)],
     ['sum(a3:a9, b2:b7)', new Tree.Formula(sum,
       [
         new Tree.ReferenceRange('a', '3', '9', 4, 5),
         new Tree.ReferenceRange('b', '2', '7', 11, 5),
-      ], 0, 17)]
+      ], 0, 17, true)]
   ])('with functions: %s', (input, res) => {
     expect(Tree.parseFormula(input)).toStrictEqual(res);
   });
@@ -271,7 +271,7 @@ describe('cell ranges', () => {
         new Tree.Reference('a', '9', 4, 2),
         new Tree.ReferenceRange('c', '16', '19', 8, 7),
         -1, new Tree.Reference('b', '7', 25, 2)
-      ], 0, 28)]
+      ], 0, 28, true)]
   ])('with refs and numbers: %s', (input, res) => {
     expect(Tree.parseFormula(input)).toStrictEqual(res);
   });

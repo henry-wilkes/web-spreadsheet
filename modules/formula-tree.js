@@ -122,14 +122,15 @@ class RawSymbol {
 
 class Formula {
   /* if one argument is undefined, the function should also return undefined */
-  constructor (func, args, index, length) {
+  constructor (func, args, index, length, allowNull) {
     this.func = func;
     this.args = args;
     this.index = index;
     this.length = length;
+    this.allowNull = allowNull;
   }
 
-  static numOrNew (func, args, index, length) {
+  static numOrNew (func, args, index, length, allowNull) {
     if (args.every(arg => (arg instanceof RawNumber))) {
       const val = func(...args.map(arg => arg.number));
       /* val may be undefined, e.g. avg(), in which case we want to preserve
@@ -138,7 +139,7 @@ class Formula {
         return new RawNumber(val, index, length);
       }
     }
-    return new this(func, args, index, length);
+    return new this(func, args, index, length, allowNull);
   }
 
   static fromString (funcName, funcIndex, content, contentIndex) {
@@ -152,9 +153,10 @@ class Formula {
 
     /* all supported functions accept an arbitrary number of arguments, so we
      * don't need to check the number */
+    /* both allow null */
     const args = parseArguments(content, contentIndex);
 
-    return this.numOrNew(func, args, funcIndex, length);
+    return this.numOrNew(func, args, funcIndex, length, true);
   }
 }
 
@@ -428,7 +430,7 @@ function replaceUnaryRawSymbols (elements, opSet) {
       }
       /* cover the operator plus argument */
       const length = coverLength(el, nextEl);
-      elements[i] = Formula.numOrNew(func, [nextEl], el.index, length);
+      elements[i] = Formula.numOrNew(func, [nextEl], el.index, length, false);
       elements[next] = null;
     }
   }
@@ -466,7 +468,7 @@ function replaceBinaryRawSymbols (elements, opSet) {
       const length = coverLength(prevEl, nextEl);
       /* replace and preserve length */
       elements[i] = Formula.numOrNew(
-        func, [prevEl, nextEl], prevEl.index, length);
+        func, [prevEl, nextEl], prevEl.index, length, false);
       elements[prev] = null;
       elements[next] = null;
     }
