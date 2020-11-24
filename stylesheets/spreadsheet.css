@@ -1,0 +1,170 @@
+body {
+	margin: 0;
+}
+
+.app-window {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	font-family: sans-serif;
+}
+
+.table {
+	/* collapsed border does not work well with sticky headers */
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+.table-area {
+	overflow: scroll;
+	min-height: calc(50vh + 5ex);
+}
+
+
+/* cells */
+
+.corner-header {
+	top: 0;
+	left: 0;
+	z-index: 5;
+	/* top right bottom left */
+	border-width: 0 2px 2px 0;
+}
+
+.column-header {
+	top: 0;
+	z-index: 4;
+	text-align: center;
+	padding-bottom: 2px;
+	/* top right bottom left */
+	border-width: 0 1px 2px 1px;
+}
+
+.row-header {
+	left: 0;
+	z-index: 3;
+	padding-right: 10px;
+	padding-left: 10px;
+	text-align: right;
+	/* top right bottom left */
+	border-width: 1px 2px 1px 0;
+}
+
+.corner-header, .row-header, .column-header {
+	position: sticky;
+	background: #ccc;
+	border-color: black;
+	border-style: solid;
+	font-weight: bold;
+}
+
+.cell {
+	min-width: 5em;
+	border-color: #ccc;
+	text-align: left;
+	vertical-align: middle;
+	border-style: solid;
+	border-width: 1px 1px 1px 1px;
+	padding-right: 4px;
+	padding-left: 4px;
+}
+
+.cell, .column-header {
+	padding-top: 4px;
+	padding-bottom: 4px;
+}
+
+/* no cell is truly empty, makes sure empty cells have the height of a single
+ * line */
+.cell:empty::before {
+	/* zero width space */
+	content: '\200b';
+}
+
+/* no border at the edges */
+.cell:nth-child(2), .column-header:nth-child(2) {
+	border-left-width: 0;
+}
+
+*:first-child > .cell, *:first-child > .row-header  {
+	border-top-width: 0;
+}
+
+.cell:last-child, .column-header:last-child {
+	border-right-width: 0;
+}
+
+*:last-child > .cell, *:last-child > .row-header {
+	border-bottom-width: 0;
+}
+
+/* cell highlighting */
+
+.cell.undetermined {
+	background: #fac;
+}
+
+.cell.depended-on {
+	--highlight-color: #06f;
+	border-color: var(--highlight-color);
+	box-shadow: 2px 2px var(--highlight-color), 2px -2px var(--highlight-color), -2px 2px var(--highlight-color), -2px -2px var(--highlight-color);
+	position: relative;
+	z-index: 1;
+}
+
+.cell.selected {
+	background: #eee;
+	border-color: black;
+	box-shadow: 3px 3px black, 3px -3px black, -3px 3px black, -3px -3px black;
+	/* make sure we are above our sibling's borders */
+	position: relative;
+	z-index: 2;
+}
+
+.number {
+	text-align: right;
+}
+
+.special-value {
+	text-align: right;
+	font-weight: bold;
+}
+
+
+/* entry */
+
+.entry-area {
+	display: flex;
+	flex-direction: column;
+	row-gap: 4px;
+	padding: 4px;
+}
+
+.user-entry {
+	padding: 8px;
+	word-wrap: anywhere;
+	border: 1px solid grey;
+	border-radius: 8px;
+}
+
+.entry-inline-error {
+	color: red;
+	text-decoration: underline dotted;
+}
+
+.entry-error-message-area {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	column-gap: max(4px, 0.5em);
+}
+
+.entry-error-message {
+	border-radius: 0.5em;
+	background: pink;
+	padding: 0.25em;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	max-width: 40em;
+}

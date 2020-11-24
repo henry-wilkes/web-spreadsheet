@@ -438,7 +438,7 @@ class CellNode {
   }
 }
 
-const numberRe = /^\s*-?[0-9]+(\.[0-9]+)?\s*$/;
+const numberRe = /^\s*-?[0-9]+(\.[0-9]*)?\s*$/;
 const formulaRe = /^\s*=/;
 
 function columnToNum (column) {
@@ -465,7 +465,8 @@ class CellGraph {
   }
 
   dynamicCellCacheChangedCB (cellNode) {
-    this.cellDisplayUpdateCallback(cellNode.name, cellNode.cache);
+    /* dynamic are always special */
+    this.cellDisplayUpdateCallback(cellNode.name, cellNode.cache, true);
   }
 
   activeCellInactiveCB (cellNode) {
@@ -548,15 +549,15 @@ class CellGraph {
     if (cellEntry instanceof DynamicFormula) {
       /* activeCell being undefined is unexpected since all DynamicFormula cells
        * should have a corresponding activeCell */
-      return activeCell.cache;
+      return { special: true, display: activeCell.cache };
     } else if (cellEntry instanceof InvalidFormula) {
-      return undefined;
+      return { special: true, display: undefined };
     } else if (cellEntry instanceof StaticFormula) {
-      return cellEntry.value;
+      return { special: true, display: cellEntry.value };
     } else if (cellEntry === null) {
-      return '';
+      return { special: false, display: '' };
     } else {
-      return cellEntry;
+      return { special: false, display: cellEntry };
     }
   }
 
@@ -568,7 +569,8 @@ class CellGraph {
     if (prevCellEntry === undefined) {
       prevCellEntry = null;
     }
-    const prevDisplay = this.displayValue(activeCell, prevCellEntry);
+    const { display: prevDisplay, special: prevSpecial } =
+      this.displayValue(activeCell, prevCellEntry);
 
     if (text.match(formulaRe) !== null) {
       const formulaText = text.replace(formulaRe, '').trim();
@@ -636,9 +638,9 @@ class CellGraph {
       this.cellEntries.set(cellName, cellEntry);
     }
 
-    const display = this.displayValue(activeCell, cellEntry);
+    const { display, special } = this.displayValue(activeCell, cellEntry);
 
-    if (prevDisplay !== display) {
+    if (prevDisplay !== display || prevSpecial !== special) {
       /* NOTE: for DynamicFormula entries, setValue *may* change the cache of
        * the corresponding activeCell, which triggers the same callback.
        * However, it may not be called if the value of the value of its cache
@@ -646,7 +648,7 @@ class CellGraph {
        * undefined dependencies. In this case, the cache has stayed the same,
        * but the display has changed. It should be safe to call the callback
        * twice */
-      this.cellDisplayUpdateCallback(cellName, display);
+      this.cellDisplayUpdateCallback(cellName, display, special);
     }
   }
 

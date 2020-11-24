@@ -15,6 +15,7 @@ describe('cell-graph display', () => {
     const displayChanges = new Map();
     const graph = new CellGraph('z', '50', displayUpdated);
 
+    /* ignore last callback variable: special */
     function displayUpdated (cellName, displayValue) {
       let changes = displayChanges.get(cellName);
       if (changes === undefined) {

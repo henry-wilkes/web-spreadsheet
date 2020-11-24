@@ -249,7 +249,7 @@ class TextMarker {
 
 const whitespaceRe = /^\s+/;
 const functionSingletonRe = /^([a-zA-Z][a-zA-Z0-9_]*)?\s*\(/;
-const numberRe = /^[0-9]+(\.[0-9]+)?/;
+const numberRe = /^[0-9]+(\.[0-9]*)?/;
 const operatorRe = /^[-+*/]/;
 const separatorRe = /^,/;
 const refRangeRe = /^[a-zA-Z]+[0-9]+:[a-zA-Z]+[0-9]+/;
