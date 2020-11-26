@@ -1,13 +1,14 @@
 {
   "name": "web-spreadsheet",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A Web Spreadsheet",
+  "keywords": "spreadsheet",
+  "browser": "./modules/spreadsheet.js",
   "scripts": {
     "test": "jest"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Henry Wilkes",
+  "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@babel/preset-env": "^7.12.1",
     "eslint": "^7.13.0",
