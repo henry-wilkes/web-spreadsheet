@@ -96,11 +96,8 @@ the project root:
 npm install
 ```
 
-After this, you can run the tests with:
+After this, you can run the tests for the modules with:
 
 ```
 npm test
 ```
-
-Currently, these only test the data model. In particular, the `spreadsheet`
-module is missing tests, but the other modules all have tests.

@@ -136,19 +136,12 @@ class SpreadSheetApp {
       cellEl.classList.add('selected');
       this.setCurrentEntry(entry);
       this.userEntry.focus();
+      /* select all the text in the entry */
       const range = document.createRange();
       range.selectNodeContents(this.userEntry);
       const selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
-    }
-
-    if (prevSelected === null) {
-      /* re-enable the input */
-      this.userEntry.removeAttribute('disabled');
-    }
-    if (cellEl === null) {
-      this.userEntry.setAttribute('disabled', 'disabled');
     }
   }
 
@@ -186,7 +179,7 @@ class SpreadSheetApp {
   }
 
   arrowKeyPress (ev) {
-    if (ev.getModifierState('Control') === true) {
+    if (ev.ctrlKey === true) {
       let shiftRow = 0;
       let shiftCol = 0;
       switch (ev.key) {
@@ -340,6 +333,7 @@ class SpreadSheetApp {
       let firstIndex;
       let prevEnd;
       if (start === 0) {
+        /* start with an error */
         this.appendErrorEntryNode(text.slice(start, end));
         prevEnd = end;
         firstIndex = 1;
@@ -348,7 +342,7 @@ class SpreadSheetApp {
         firstIndex = 0;
       }
 
-      /* alternate */
+      /* alternate normal -> error -> normal, etc */
       for (let i = firstIndex; i < errorRegions.length; i++) {
         const region = errorRegions[i];
         start = region.index;
@@ -358,6 +352,7 @@ class SpreadSheetApp {
         prevEnd = end;
       }
 
+      /* final part is normal */
       if (prevEnd < text.length) {
         this.appendNormalEntryNode(text.slice(prevEnd, text.length));
       }
@@ -383,16 +378,9 @@ class SpreadSheetApp {
     }
   }
 
-  entryEnterKeyDown (ev) {
-    if (ev.key === 'Enter') {
-      ev.preventDefault();
-    }
-  }
-
   entryEnterKey (ev) {
     if (ev.key === 'Enter') {
-      if (ev.getModifierState('Shift') === false &&
-          ev.getModifierState('Control') === false) {
+      if (ev.shiftKey === false && ev.ctrlKey === false) {
         this.selectRelativeCell(0, 1);
       } else {
         this.selectRelativeCell(0, 0);
@@ -415,8 +403,7 @@ class SpreadSheetApp {
     userEntry.setAttribute('contenteditable', 'true');
     userEntry.setAttribute('spellcheck', 'false');
     userEntry.addEventListener('input', this.entryInput.bind(this));
-    userEntry.addEventListener('keyup', this.entryEnterKey.bind(this));
-    userEntry.addEventListener('keydown', this.entryEnterKeyDown.bind(this));
+    userEntry.addEventListener('keydown', this.entryEnterKey.bind(this));
     userEntry.addEventListener('blur', this.entryBlur.bind(this));
 
     const errorArea = document.createElement('div');
