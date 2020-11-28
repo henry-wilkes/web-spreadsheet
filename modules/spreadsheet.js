@@ -89,7 +89,7 @@ class SpreadSheetApp {
     root.appendChild(this.createEntryArea());
 
     this.selectCoordCell(0, 1);
-    root.addEventListener('keyup', this.arrowKeyPress.bind(this));
+    root.addEventListener('keydown', this.arrowKeyPress.bind(this));
   }
 
   applyEntry () {
