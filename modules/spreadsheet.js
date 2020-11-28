@@ -134,14 +134,48 @@ class SpreadSheetApp {
         }
       }
       cellEl.classList.add('selected');
+
+      /* show entry */
       this.setCurrentEntry(entry);
       this.userEntry.focus();
+
       /* select all the text in the entry */
       const range = document.createRange();
       range.selectNodeContents(this.userEntry);
       const selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
+
+      /* shift display if out of range */
+      if (prevSelected !== cellEl) {
+        const cellRect = cellEl.getBoundingClientRect();
+        const { width: headerWidth, height: headerHeight } =
+          this.cornerHeader.getBoundingClientRect();
+        const { left: tableLeft, top: tableTop } =
+          this.tableArea.getBoundingClientRect();
+        /* without scrollbars */
+        const tableRight = tableLeft + this.tableArea.clientWidth;
+        const tableBottom = tableTop + this.tableArea.clientHeight;
+
+        /* between the (sticky) headers and the table area's scrollbars */
+        const leftOvershoot = tableLeft + headerWidth - cellRect.left;
+        const rightOvershoot = cellRect.right - tableRight;
+        const topOvershoot = tableTop + headerHeight - cellRect.top;
+        const bottomOvershoot = cellRect.bottom - tableBottom;
+
+        if (leftOvershoot > 0) {
+          this.tableArea.scrollBy({ left: -leftOvershoot, behaviour: 'smooth' });
+        } else if (rightOvershoot > 0) {
+          this.tableArea.scrollBy({ left: rightOvershoot, behaviour: 'smooth' });
+        }
+
+        if (topOvershoot > 0) {
+          this.tableArea.scrollBy({ top: -topOvershoot, behaviour: 'smooth' });
+        } else if (bottomOvershoot > 0) {
+          this.tableArea.scrollBy(
+            { top: +bottomOvershoot, beaviour: 'smooth' });
+        }
+      }
     }
   }
 
@@ -257,6 +291,7 @@ class SpreadSheetApp {
       rowHeader.setAttribute('scope', 'row');
       if (r === 0) {
         rowHeader.classList.add('corner-header');
+        this.cornerHeader = rowHeader;
       } else {
         const text = document.createTextNode(String(r));
         rowHeader.appendChild(text);
@@ -292,6 +327,7 @@ class SpreadSheetApp {
       }
     }
 
+    this.tableArea = area;
     return area;
   }
 
