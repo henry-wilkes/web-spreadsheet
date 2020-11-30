@@ -63,8 +63,7 @@ function multiply (arg1, arg2) {
 }
 
 function divide (arg1, arg2) {
-  /* how should we handle divide by 0? */
-  if (isNum(arg1) && isNum(arg2)) {
+  if (isNum(arg1) && isNum(arg2) && arg2 !== 0) {
     return arg1 / arg2;
   }
   return undefined;

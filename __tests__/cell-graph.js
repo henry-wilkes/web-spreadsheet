@@ -552,6 +552,12 @@ describe('cell-graph get entries', () => {
       ['a3', [/function evaluation is not defined.*avg/i], ['avg()']]],
     [['a3', '= 5 + 4 * (avg(b1:b4) + 9)'],
       ['a3', [/function evaluation is not defined.*avg/i], ['avg(b1:b4)']]],
+    [['a3', '= 5 / 0'],
+      ['a3', [/function evaluation is not defined.*divide/i], ['5 / 0']]],
+    [['a3', '= (0) / 0'],
+      ['a3', [/function evaluation is not defined.*divide/i], ['(0) / 0']]],
+    [['b2', '0', 'a3', '= 5 / b2'],
+      ['a3', [/function evaluation is not defined.*divide/i], ['5 / b2']]],
     /* several */
     [['a3', '= a3 + b4'],
       ['a3', [/self-dependency.*a3/i, /empty.*b4/i], ['a3', 'b4']]],

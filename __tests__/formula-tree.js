@@ -168,10 +168,12 @@ describe('named functions', () => {
     expect(Tree.parseFormula(input)).toBe(res);
   });
 
-  test('empty avg', () => {
+  test.each([
     /* would be undefined so we have kept the function */
-    expect(Tree.parseFormula(' avg  () ')).toStrictEqual(
-      new Tree.Formula(avg, [], 1, 7, true));
+    [' avg  () ', new Tree.Formula(avg, [], 1, 7, true)],
+    [' 2 / 0 ', new Tree.Formula(divide, [2, 0], 1, 5, false)]
+  ])('undetermined evaulation: %s', (input, res) => {
+    expect(Tree.parseFormula(input)).toStrictEqual(res);
   });
 
   test.each([
