@@ -42,21 +42,26 @@ function getColumnLetters (numColumns) {
 }
 
 function formatNumber (number) {
-  let format = String(number);
-  if (format.length <= 8) {
-    return format;
-  }
-  /* get most precise we can */
-  for (let precision = 8; precision >= 2; precision--) {
-    format = number.toPrecision(precision).replace(
-      /\.0+(e.*)?$/, '$1'
-    ).replace(
-      /(^-?[0-9]+\.[0-9]*[1-9])0+(e.*)?$/, '$1$2');
-    if (format.length <= 8) {
-      return format;
+  let abs = Math.abs(number);
+
+  if (abs >= 1000000) {
+    return number.toExponential(2);
+  } else if (abs >= 1 || abs === 0) {
+    /* try zero decimal places without loosing precision (i.e. integer) */
+    if (Number.isInteger(number)) {
+      return String(number);
     }
+    return number.toFixed(2);
+  } else if (abs >= 0.001) {
+    /* try 2 decimal places without loosing precision */
+    const fixed2 = number.toFixed(2);
+    if (Number.parseFloat(fixed2) === number) {
+      return fixed2;
+    }
+    return number.toPrecision(3);
+  } else {
+    return number.toExponential(2);
   }
-  return format;
 }
 
 const formulaRe = /^\s*=/;
